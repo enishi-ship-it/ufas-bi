@@ -2227,6 +2227,240 @@ textarea {
   gap: 12px;
 }
 
+/* =========================================================
+   AI アシスタント — API直接実行モード
+   ========================================================= */
+
+/* ---- API接続バナー ---- */
+.ai-hub-notice--connected {
+  background: rgba(63,185,80,0.08);
+  border: 1px solid rgba(63,185,80,0.2);
+}
+.ai-hub-notice--disconnected {
+  background: rgba(210,153,34,0.08);
+  border: 1px solid rgba(210,153,34,0.2);
+}
+.ai-hub-notice .btn-xs {
+  margin-left: auto;
+  font-size: 11px;
+  padding: 3px 10px;
+}
+
+/* ---- 実行ボタン行 ---- */
+.ai-modal-execute-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-color);
+}
+.ai-execute-hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* ---- 結果表示セクション ---- */
+.ai-result-section {
+  margin-top: 20px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-primary);
+}
+.ai-result-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+.ai-result-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.ai-result-actions {
+  display: flex;
+  gap: 4px;
+}
+.ai-result-body {
+  padding: 16px 20px;
+  max-height: 420px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-primary);
+}
+/* Markdown レンダリング内のスタイル */
+.ai-result-body h1, .ai-result-body h2, .ai-result-body h3, .ai-result-body h4 {
+  margin: 16px 0 8px;
+  color: var(--text-primary);
+}
+.ai-result-body h1 { font-size: 18px; }
+.ai-result-body h2 { font-size: 16px; border-bottom: 1px solid var(--border-color); padding-bottom: 4px; }
+.ai-result-body h3 { font-size: 14px; }
+.ai-result-body p { margin: 6px 0; }
+.ai-result-body ul, .ai-result-body ol { padding-left: 20px; margin: 6px 0; }
+.ai-result-body li { margin: 3px 0; }
+.ai-result-body code {
+  background: var(--bg-tertiary);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 12px;
+}
+.ai-result-body pre {
+  background: var(--bg-tertiary);
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 12px;
+  margin: 8px 0;
+}
+.ai-result-body table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 12px;
+}
+.ai-result-body th, .ai-result-body td {
+  padding: 6px 10px;
+  border: 1px solid var(--border-color);
+  text-align: left;
+}
+.ai-result-body th {
+  background: var(--bg-secondary);
+  font-weight: 600;
+}
+.ai-result-body strong { color: #4f9cf9; }
+.ai-result-body blockquote {
+  border-left: 3px solid var(--accent);
+  padding-left: 12px;
+  margin: 8px 0;
+  color: var(--text-secondary);
+}
+
+.ai-result-footer {
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-color);
+  background: var(--bg-secondary);
+}
+
+/* ---- ローディング・タイピングインジケーター ---- */
+.ai-result-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 0;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+.ai-typing-indicator {
+  display: flex;
+  gap: 5px;
+}
+.ai-typing-indicator span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: ai-typing 1.2s ease-in-out infinite;
+}
+.ai-typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+.ai-typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes ai-typing {
+  0%, 60%, 100% { opacity: 0.25; transform: scale(0.8); }
+  30% { opacity: 1; transform: scale(1); }
+}
+
+/* ---- スピンアニメーション（ボタン内ローダー） ---- */
+.ai-spin {
+  animation: ai-spin 1s linear infinite;
+}
+@keyframes ai-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ---- エラー表示 ---- */
+.ai-result-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: rgba(248,81,73,0.08);
+  border-radius: 6px;
+}
+.ai-error-title {
+  font-weight: 600;
+  color: #f85149;
+  margin: 0 0 4px;
+  font-size: 13px;
+}
+.ai-error-message {
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin: 0;
+}
+
+/* ---- APIキー設定モーダル ---- */
+.ai-apikey-modal {
+  max-width: 480px;
+}
+.ai-apikey-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+.ai-apikey-current {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 8px;
+}
+.ai-apikey-current code {
+  background: var(--bg-tertiary);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+.ai-apikey-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+.ai-apikey-clear {
+  color: #f85149 !important;
+}
+.form-hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 4px;
+}
+.form-hint a {
+  color: var(--accent);
+}
+
+/* ---- 履歴アイテム — 結果表示ボタン ---- */
+.ai-history-item {
+  position: relative;
+}
+.ai-history-view-btn {
+  flex-shrink: 0;
+  opacity: 0.5;
+  transition: opacity 0.15s ease;
+}
+.ai-history-item:hover .ai-history-view-btn {
+  opacity: 1;
+}
+
 /* ---- ドロップゾーンのクリック誘導テキスト ---- */
 .drop-zone-click-hint {
   font-size: 11px;
