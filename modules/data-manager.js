@@ -246,6 +246,25 @@ function importData(data) {
     return;
   }
 
+  // データ構造のバリデーション
+  const errors = [];
+  if (data.hearingMemos && !Array.isArray(data.hearingMemos)) {
+    errors.push('hearingMemos が配列ではありません');
+  }
+  if (data.companies && !Array.isArray(data.companies)) {
+    errors.push('companies が配列ではありません');
+  }
+  if (data.uploadedProposals && !Array.isArray(data.uploadedProposals)) {
+    errors.push('uploadedProposals が配列ではありません');
+  }
+  if (data.plData && !Array.isArray(data.plData)) {
+    errors.push('plData が配列ではありません');
+  }
+  if (errors.length > 0) {
+    showToast(`データ形式エラー: ${errors.join(', ')}`, 'error', 5000);
+    return;
+  }
+
   // openConfirmModal は非同期で動作するため、確認後の処理はコールバックに移す
   openConfirmModal(
     '既存のデータはすべて上書きされます。<br>インポートを実行しますか？',
@@ -271,7 +290,13 @@ function importData(data) {
       // サンプルロード済みフラグを残す（インポートデータの中身によらず）
       localStorage.setItem(LS_KEY_SAMPLE_LOADED, '1');
 
-      showToast('データをインポートしました。ページを再読み込みして反映してください。', 'success', 5000);
+      // インポート内容のサマリーを表示する
+      const summary = [];
+      if (Array.isArray(data.hearingMemos)) summary.push(`メモ ${data.hearingMemos.length}件`);
+      if (Array.isArray(data.companies)) summary.push(`企業 ${data.companies.length}件`);
+      if (Array.isArray(data.uploadedProposals)) summary.push(`提案書 ${data.uploadedProposals.length}件`);
+      if (Array.isArray(data.plData)) summary.push(`PL ${data.plData.length}件`);
+      showToast(`インポート完了: ${summary.join('、')}`, 'success', 5000);
 
       // 少し待ってからリロードする（トーストが見えるように）
       setTimeout(() => location.reload(), 1500);

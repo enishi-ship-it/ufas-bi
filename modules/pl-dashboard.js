@@ -472,7 +472,8 @@ function openPLImportModal(dashboardContainer) {
   bodyEl.innerHTML = `
     <p class="pl-import-desc">
       Excel (.xlsx) または CSV (.csv) 形式のPLファイルをインポートします。<br>
-      想定カラム: 月, 売上, 原価, 粗利, 販管費, 営業利益（英語ヘッダーも対応）
+      必須カラム: 月, 売上, 原価, 販管費（粗利・営業利益は省略可＝自動計算されます）<br>
+      英語ヘッダー（month, revenue, cost, sga 等）にも対応
     </p>
 
     <!-- ドロップゾーン -->
@@ -625,7 +626,7 @@ function handleFileSelected(file, modalBodyEl, onParsed) {
       const colMapping = buildColMapping(headers);
 
       if (!colMapping) {
-        showError(errorEl, `必須カラムが見つかりません。\n想定カラム: 月, 売上, 原価, 粗利, 販管費, 営業利益\n（または: month, revenue, cost, gross_profit, sga, operating_income）\n検出されたヘッダー: ${headers.join(', ')}`);
+        showError(errorEl, `必須カラムが見つかりません。\n必須カラム: 月, 売上, 原価, 販管費（粗利・営業利益は省略可＝自動計算）\n（または: month, revenue, cost, sga）\n検出されたヘッダー: ${headers.join(', ')}`);
         return;
       }
 
@@ -676,11 +677,11 @@ function buildColMapping(headers) {
     }
   });
 
-  // 全必須カラムが揃っているか確認する
-  const requiredCols = ['month', 'revenue', 'cost', 'grossProfit', 'sga', 'operatingIncome'];
-  const hasAll = requiredCols.every(col => mapping[col] !== undefined);
+  // 最低限必要なカラム（粗利・営業利益はあれば使い、なければ自動計算する）
+  const requiredCols = ['month', 'revenue', 'cost', 'sga'];
+  const hasMinimum = requiredCols.every(col => mapping[col] !== undefined);
 
-  return hasAll ? mapping : null;
+  return hasMinimum ? mapping : null;
 }
 
 /**
@@ -703,14 +704,26 @@ function mapRow(row, colMapping) {
     return isNaN(num) ? 0 : num;
   };
 
-  return {
+  const result = {
     month:           String(row[colMapping.month] ?? '').trim(),
     revenue:         toNum(row[colMapping.revenue]),
     cost:            toNum(row[colMapping.cost]),
-    grossProfit:     toNum(row[colMapping.grossProfit]),
+    grossProfit:     colMapping.grossProfit !== undefined ? toNum(row[colMapping.grossProfit]) : 0,
     sga:             toNum(row[colMapping.sga]),
-    operatingIncome: toNum(row[colMapping.operatingIncome])
+    operatingIncome: colMapping.operatingIncome !== undefined ? toNum(row[colMapping.operatingIncome]) : 0
   };
+
+  // 粗利が0で売上・原価があれば自動計算する
+  if (result.grossProfit === 0 && result.revenue > 0) {
+    result.grossProfit = result.revenue - result.cost;
+  }
+
+  // 営業利益が0で粗利・販管費があれば自動計算する
+  if (result.operatingIncome === 0 && result.grossProfit > 0) {
+    result.operatingIncome = result.grossProfit - result.sga;
+  }
+
+  return result;
 }
 
 /**

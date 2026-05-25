@@ -177,10 +177,15 @@ function renderAIHub(container) {
 
       <!-- 最近の実行履歴 -->
       <div class="ai-history" id="ai-history-section">
-        <h3 class="ai-history-title">
-          <i data-lucide="clock" style="width:14px;height:14px;"></i>
-          最近の実行履歴
-        </h3>
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <h3 class="ai-history-title">
+            <i data-lucide="clock" style="width:14px;height:14px;"></i>
+            最近の実行履歴
+          </h3>
+          <button class="btn btn--ghost btn-xs" id="ai-btn-export-history" title="履歴をエクスポート">
+            <i data-lucide="download" class="btn-icon"></i>エクスポート
+          </button>
+        </div>
         <div id="ai-history-list"></div>
       </div>
     </div>
@@ -198,6 +203,11 @@ function renderAIHub(container) {
   // API設定ボタン
   container.querySelector('#ai-btn-api-settings')?.addEventListener('click', () => {
     openApiKeyModal(container);
+  });
+
+  // 履歴エクスポートボタン
+  container.querySelector('#ai-btn-export-history')?.addEventListener('click', () => {
+    exportAIHistory();
   });
 
   // 実行履歴を描画する
@@ -531,6 +541,20 @@ function executeApiCall(modalContent, task, prompt) {
       resultFooter.removeAttribute('hidden');
       executeBtn.disabled = false;
       executeBtn.innerHTML = '<i data-lucide="zap" class="btn-icon"></i>AI実行';
+
+      // 自動保存する
+      saveHistory(task, fullText);
+      renderHistory();
+
+      // 保存ボタンを「保存済み」ラベルに変更する
+      const saveBtn = modalContent.querySelector('#ai-btn-save-result');
+      if (saveBtn) {
+        saveBtn.innerHTML = '<i data-lucide="check-circle" class="btn-icon"></i>保存済み';
+        saveBtn.disabled = true;
+        saveBtn.classList.remove('btn--primary');
+        saveBtn.classList.add('btn--ghost');
+      }
+
       if (typeof lucide !== 'undefined') lucide.createIcons();
     },
 
@@ -1026,6 +1050,28 @@ function renderHistory() {
   });
 
   if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+/**
+ * @description AI実行履歴をJSONファイルとしてエクスポートする。
+ *              履歴が空の場合はトーストで通知する。
+ */
+function exportAIHistory() {
+  const history = loadFromStorage(LS_KEY_AI_HISTORY, []);
+  if (history.length === 0) {
+    showToast('エクスポートする履歴がありません。', 'info');
+    return;
+  }
+  const json = JSON.stringify(history, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+  a.href = url;
+  a.download = `ufas-ai-history-${dateStr}.json`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  showToast('AI履歴をエクスポートしました。', 'success');
 }
 
 /**

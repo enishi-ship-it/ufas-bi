@@ -552,65 +552,133 @@ export function truncateText(text, maxLen) {
    ========================================================= */
 
 /**
- * @description ダッシュボードビューに直近のヒアリングメモ3件と操作導線を描画する。
- *              ヒアリングメモが0件のときは空ステートを表示する。
+ * @description ダッシュボードビューをビジネスコックピットとして描画する。
+ *              4セクション構成: パイプラインKPI / 直近アクション / ヒアリングメモ / PL財務
  */
 function renderDashboard() {
   const view = document.getElementById('view-dashboard');
   if (!view) return;
 
-  // 更新日時の新しい順にソートして最大3件を取得する
-  const allMemos = loadFromStorage(LS_KEY_HEARING, []);
-  allMemos.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
-  const recentMemos = allMemos.slice(0, 3);
+  /* --- データ取得 --- */
+  const allMemos     = loadFromStorage(LS_KEY_HEARING, []);
+  const companies    = loadFromStorage(LS_KEY_COMPANY, []);
+  const proposals    = loadFromStorage(LS_KEY_PROPOSALS, []);
+  const aiHistory    = loadFromStorage('ufas_ai_history', []);
 
-  // メモカード HTML を生成するヘルパー（ダッシュボード用の簡易版）
+  // 更新日時の新しい順にソート
+  allMemos.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
+  /* --- Section A: パイプラインサマリー KPI --- */
+  const kpiItems = [
+    { icon: 'mic',           label: 'メモ件数',   count: allMemos.length },
+    { icon: 'building-2',    label: '登録企業数',  count: companies.length },
+    { icon: 'file-text',     label: '提案書数',    count: proposals.length },
+    { icon: 'sparkles',      label: 'AI実行数',    count: aiHistory.length },
+  ];
+  const kpiHtml = kpiItems.map(k => `
+    <div class="dashboard-kpi-card">
+      <i data-lucide="${k.icon}" class="dashboard-kpi-icon"></i>
+      <span class="dashboard-kpi-count">${k.count}</span>
+      <span class="dashboard-kpi-label">${escapeHtml(k.label)}</span>
+    </div>
+  `).join('');
+
+  /* --- Section B: 直近のアクション（最新5件のメモから nextActions を抽出） --- */
+  const actionMemos = allMemos
+    .filter(m => m.nextActions && m.nextActions.trim() !== '')
+    .slice(0, 5);
+  const actionsHtml = actionMemos.length === 0
+    ? `<p class="dashboard-empty-memo">直近のアクション項目はありません。</p>`
+    : actionMemos.map(m => `
+        <a href="#hearing-memo" class="dashboard-action-item" data-memo-action>
+          <span class="dashboard-action-client">${escapeHtml(m.clientName)}</span>
+          <span class="dashboard-action-text">
+            <i data-lucide="circle-check" class="dashboard-action-check-icon"></i>
+            ${escapeHtml(truncateText(m.nextActions, 80))}
+          </span>
+        </a>
+      `).join('');
+
+  /* --- Section C: 直近のヒアリングメモ（3件、アクセント付きカード） --- */
+  const recentMemos = allMemos.slice(0, 3);
   const memoCardsHtml = recentMemos.length === 0
     ? `<p class="dashboard-empty-memo">ヒアリングメモがまだありません。</p>`
     : recentMemos.map(m => `
-        <div class="dashboard-memo-card">
+        <div class="dashboard-memo-card dashboard-memo-card--accent">
           <div class="dashboard-memo-header">
-            <span class="dashboard-memo-client">${escapeHtmlDash(m.clientName)}</span>
+            <span class="dashboard-memo-client">${escapeHtml(m.clientName)}</span>
             <span class="dashboard-memo-date">${m.date || '—'}</span>
           </div>
-          <p class="dashboard-memo-summary">${escapeHtmlDash(truncateText(m.summary, 80))}</p>
+          <p class="dashboard-memo-summary">${escapeHtml(truncateText(m.summary, 80))}</p>
           ${m.nextActions ? `<div class="dashboard-memo-action">
             <i data-lucide="arrow-right-circle" class="dashboard-memo-action-icon"></i>
-            <span>${escapeHtmlDash(truncateText(m.nextActions, 60))}</span>
+            <span>${escapeHtml(truncateText(m.nextActions, 60))}</span>
           </div>` : ''}
         </div>
       `).join('');
 
+  /* --- HTML 組み立て --- */
   view.innerHTML = `
     <div class="dashboard-grid">
 
-      <!-- 直近のヒアリングメモ -->
-      <div class="dashboard-card">
+      <!-- Section A: パイプラインサマリー KPI（全幅） -->
+      <div class="dashboard-card dashboard-card--full">
         <div class="dashboard-card-header">
           <span class="dashboard-card-title">
-            <i data-lucide="mic" class="dashboard-card-icon"></i>直近のヒアリングメモ
+            <i data-lucide="bar-chart-3" class="dashboard-card-icon"></i>パイプラインサマリー
           </span>
-          <div class="dashboard-card-actions">
-            <button class="btn btn--primary btn-sm" id="dashboard-btn-new-memo">
-              <i data-lucide="plus" class="btn-icon"></i>新規メモ
-            </button>
-            <a href="#hearing-memo" class="btn btn--ghost btn-sm" id="dashboard-link-all-memo">
-              すべて見る
-            </a>
-          </div>
         </div>
-        <div class="dashboard-memo-list" id="dashboard-memo-list">
-          ${memoCardsHtml}
+        <div class="dashboard-kpi-row">
+          ${kpiHtml}
         </div>
       </div>
 
-      <!-- PL/財務ダッシュボード（Phase 2） -->
-      <div class="dashboard-card dashboard-card--pl" id="dashboard-pl-container">
+      <!-- 2カラム行: アクション + ヒアリングメモ -->
+      <div class="dashboard-two-col">
+
+        <!-- Section B: 直近のアクション -->
+        <div class="dashboard-card dashboard-actions-card">
+          <div class="dashboard-card-header">
+            <span class="dashboard-card-title">
+              <i data-lucide="list-checks" class="dashboard-card-icon"></i>直近のアクション
+            </span>
+          </div>
+          <div class="dashboard-actions-list">
+            ${actionsHtml}
+          </div>
+        </div>
+
+        <!-- Section C: 直近のヒアリングメモ -->
+        <div class="dashboard-card">
+          <div class="dashboard-card-header">
+            <span class="dashboard-card-title">
+              <i data-lucide="mic" class="dashboard-card-icon"></i>直近のヒアリングメモ
+            </span>
+            <div class="dashboard-card-actions">
+              <button class="btn btn--primary btn-sm" id="dashboard-btn-new-memo">
+                <i data-lucide="plus" class="btn-icon"></i>新規メモ
+              </button>
+              <a href="#hearing-memo" class="btn btn--ghost btn-sm" id="dashboard-link-all-memo">
+                すべて見る
+              </a>
+            </div>
+          </div>
+          <div class="dashboard-memo-list" id="dashboard-memo-list">
+            ${memoCardsHtml}
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Section D: PL/財務ダッシュボード（全幅） -->
+      <div class="dashboard-card dashboard-card--pl dashboard-card--full" id="dashboard-pl-container">
         <!-- renderPLDashboard が動的に内容を生成する -->
       </div>
 
     </div>
   `;
+
+  /* --- イベントリスナー --- */
 
   // 「新規メモ」ボタン — ヒアリングメモビューに遷移してフォームを開く
   view.querySelector('#dashboard-btn-new-memo')?.addEventListener('click', () => {
@@ -627,8 +695,16 @@ function renderDashboard() {
     navigate('#hearing-memo');
   });
 
+  // アクションアイテムのクリック — ヒアリングメモビューへ遷移
+  view.querySelectorAll('[data-memo-action]').forEach(el => {
+    el.addEventListener('click', e => {
+      e.preventDefault();
+      history.pushState(null, '', '#hearing-memo');
+      navigate('#hearing-memo');
+    });
+  });
+
   // PL/財務ダッシュボードセクションを描画する
-  // PLデータがある場合はグラフ+テーブル、ない場合はアップロード導線を表示する
   const plContainer = view.querySelector('#dashboard-pl-container');
   if (plContainer) {
     renderPLDashboard(plContainer);
@@ -638,11 +714,11 @@ function renderDashboard() {
 }
 
 /**
- * @description ダッシュボード用のHTML特殊文字エスケープ（script.js 内ユーティリティ）。
+ * @description HTML特殊文字エスケープ（共有ユーティリティ）。
  * @param {string} str - エスケープ対象
  * @returns {string} エスケープ済み文字列
  */
-function escapeHtmlDash(str) {
+export function escapeHtml(str) {
   if (!str) return '';
   return String(str)
     .replace(/&/g, '&amp;')

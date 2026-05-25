@@ -44,9 +44,13 @@ export function initCompanyResearch() {
     openSearchAddCompanyModal();
   });
 
-  // 検索インプット
+  // 検索インプット（300ms デバウンスで過剰な再描画を防ぐ）
+  let searchTimer = null;
   document.getElementById('search-company')?.addEventListener('input', () => {
-    renderCompanyTable();
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      renderCompanyTable();
+    }, 300);
   });
 
   // 業種フィルタ
@@ -67,6 +71,21 @@ export function initCompanyResearch() {
    ========================================================= */
 
 /**
+ * @description 企業データから業種の一覧を抽出し、フィルタ用ドロップダウンの選択肢を動的に更新する。
+ *              現在選択中の値を維持する。
+ * @param {Array<Object>} companies - 全企業データの配列
+ */
+function updateIndustryFilter(companies) {
+  const filterEl = document.getElementById('filter-industry');
+  if (!filterEl) return;
+  const currentValue = filterEl.value;
+  const industries = [...new Set(companies.map(c => c.industry).filter(Boolean))].sort();
+  // 「すべて」オプションを維持し、残りを再構築する
+  filterEl.innerHTML = '<option value="">業種: すべて</option>' +
+    industries.map(i => `<option value="${escapeHtml(i)}" ${i === currentValue ? 'selected' : ''}>${escapeHtml(i)}</option>`).join('');
+}
+
+/**
  * @description 企業情報テーブルを描画する。
  *              検索ワード・業種フィルタ・フェーズフィルタを適用する。
  */
@@ -74,7 +93,11 @@ function renderCompanyTable() {
   const tbody = document.getElementById('company-table-body');
   if (!tbody) return;
 
-  let companies = loadFromStorage(LS_KEY_COMPANY, []);
+  // 業種フィルタの選択肢を動的に生成する
+  const allCompanies = loadFromStorage(LS_KEY_COMPANY, []);
+  updateIndustryFilter(allCompanies);
+
+  let companies = [...allCompanies];
 
   // 検索フィルタ
   const keyword = document.getElementById('search-company')?.value.trim().toLowerCase() || '';
@@ -823,7 +846,12 @@ function openCompanyForm(company) {
       updatedAt:      now
     };
 
-    saveCompany(saved, isEdit);
+    try {
+      saveCompany(saved, isEdit);
+    } catch (_saveErr) {
+      // saveCompany 内で toast 表示済み。モーダルは閉じずに残す
+      return;
+    }
     closeModal();
     renderCompanyTable();
 
@@ -855,7 +883,16 @@ function saveCompany(company, isEdit) {
     companies.unshift(company);
   }
 
-  saveToStorage(LS_KEY_COMPANY, companies);
+  try {
+    saveToStorage(LS_KEY_COMPANY, companies);
+  } catch (err) {
+    if (err.message === 'QUOTA_EXCEEDED') {
+      showToast('ストレージ容量が不足しています。データ管理から不要なデータを削除してください。', 'error', 6000);
+    } else {
+      showToast(`保存に失敗しました: ${err.message || '不明なエラー'}`, 'error');
+    }
+    throw err;
+  }
 }
 
 /**

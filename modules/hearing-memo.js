@@ -57,9 +57,13 @@ export function initHearingMemo() {
     openHearingForm(null);
   });
 
-  // 検索インプット（入力のたびにリストを再描画）
+  // 検索インプット（300ms デバウンスで過剰な再描画を防ぐ）
+  let searchTimer = null;
   document.getElementById('search-hearing')?.addEventListener('input', e => {
-    renderHearingList(e.target.value.trim());
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      renderHearingList(e.target.value.trim());
+    }, 300);
   });
 
   renderHearingList();
@@ -187,6 +191,12 @@ function buildMemoCard(memo) {
         <i data-lucide="arrow-right-circle" class="memo-card-action-icon"></i>
         <span>${escapeHtml(truncateText(memo.nextActions, 60))}</span>
       </div>` : ''}
+      ${memo.nextActionDueDate ? `
+      <div class="memo-card-action">
+        <i data-lucide="calendar" class="memo-card-action-icon"></i>
+        <span>期日: ${escapeHtml(memo.nextActionDueDate)}</span>
+        ${new Date(memo.nextActionDueDate) < new Date(new Date().toISOString().slice(0, 10)) ? '<span class="badge-overdue">期限超過</span>' : ''}
+      </div>` : ''}
 
       <!-- 詳細展開エリア（クリックで表示） -->
       <div class="memo-detail">
@@ -201,6 +211,13 @@ function buildMemoCard(memo) {
         <div class="memo-detail-row">
           <div class="memo-detail-label">次のアクション</div>
           <div class="memo-detail-value">${escapeHtml(memo.nextActions || '—')}</div>
+        </div>
+        <div class="memo-detail-row">
+          <div class="memo-detail-label">次アクション期日</div>
+          <div class="memo-detail-value">
+            ${escapeHtml(memo.nextActionDueDate || '—')}
+            ${memo.nextActionDueDate && new Date(memo.nextActionDueDate) < new Date(new Date().toISOString().slice(0, 10)) ? '<span class="badge-overdue">期限超過</span>' : ''}
+          </div>
         </div>
         ${buildAttachmentList(memo.attachments || [], memo.id)}
         <div class="memo-detail-actions">
@@ -260,6 +277,10 @@ function openHearingForm(memo) {
       <label class="form-label" for="f-next-actions">次のアクション</label>
       <textarea id="f-next-actions" class="form-textarea" rows="2"
                 placeholder="例: 提案書ドラフトを5/21までに送付">${escapeHtml(memo?.nextActions || '')}</textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="f-due-date">次アクション期日</label>
+      <input type="date" id="f-due-date" class="form-input" value="${escapeHtml(memo?.nextActionDueDate || '')}">
     </div>
 
     <!-- ファイル添付エリア -->
@@ -331,6 +352,7 @@ function openHearingForm(memo) {
       attendees:   form.querySelector('#f-attendees').value.trim(),
       summary:     form.querySelector('#f-summary').value.trim(),
       nextActions: form.querySelector('#f-next-actions').value.trim(),
+      nextActionDueDate: form.querySelector('#f-due-date').value,
       attachments: pendingAttachments,
       isSample:    false, // 手動入力はサンプルフラグを立てない
       createdAt:   isEdit ? memo.createdAt : now,
